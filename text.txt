@@ -1,0 +1,580 @@
+#--- coding:utf-8
+
+import sys
+import MeCab
+from pprint import pprint
+
+m = MeCab.Tagger ("mecabrc")  # -Ochasen/-Owakati/-Oyomi/mecabrc
+
+sentence = "すもももももももものうち"
+print(sentence)
+
+filename = "TextData3.txt"
+
+#f = open(filename,"r")
+with open(filename,"r") as f:
+    lines = f.readlines()
+f.close()
+
+for line in lines:
+    print(line)
+
+    words = m.parse(line)
+    print(words)
+
+    output_words = []
+
+    for row in words.split("\n"):
+        word = row.split("\t")[0]
+        if word == "EOS":
+            break
+        else:
+            pos = row.split("\t")[1].split(",")[0]
+            if pos == "名詞":
+                output_words.append(word)
+
+    #pprint(list(set(output_words)))
+    print(list(set(output_words)))
+    #print(output_words)
+
+
+
+Option Explicit
+
+Sub read()
+
+    Dim myFilePath As String
+    Dim outfilename As String
+    Dim readfilename As String
+    Dim FileName As String
+    Dim Tmp As Variant
+    Dim Tmp1, Tmp2 As String
+    Dim nslide As Integer, row As Integer
+    Const P2CM = 1 / 72 * 2.54  'Points To CentiMeters
+    
+    Dim SheetName As Object
+    Set SheetName = Worksheets("Sheet1")
+
+    For row = 1 To SheetName.Cells(1, 1).End(xlDown).row
+        readfilename = SheetName.Cells(row, 1)
+        nslide = SheetName.Cells(row, 2)
+        If InStr(readfilename, "\") Then
+            Tmp = Split(readfilename, "\")
+            FileName = Tmp(UBound(Tmp))
+            Tmp = Split(FileName, ".")
+            FileName = Tmp(0)
+        Else
+            Tmp = Split(readfilename, ".")
+            FileName = Tmp(0)
+        End If
+        
+        outfilename = FileName & "_slide" & nslide & ".txt"
+        myFilePath = ThisWorkbook.Path & "\txt\" & outfilename
+        
+        Open myFilePath For Output As #1
+        
+        Dim ppApp As New PowerPoint.Application
+        ppApp.Visible = True
+         
+        Dim ppPrs As PowerPoint.Presentation
+        Set ppPrs = ppApp.Presentations.Open(ThisWorkbook.Path & "\" & readfilename)
+         
+        Dim ppSld As PowerPoint.Slide
+        Set ppSld = ppPrs.Slides(nslide)
+        
+        Dim ppShps As Object
+        Set ppShps = ppSld.Shapes
+        
+        Dim ShpCnt As Long
+        Dim ppShp As Object
+        For ShpCnt = 1 To ppShps.Count
+            Set ppShp = ppSld.Shapes(ShpCnt)
+            With ppShp
+                If .HasTextFrame Then
+                    Print #1, Replace(.TextFrame.TextRange.Text, vbCr, vbCrLf)
+                End If
+            End With
+
+        Next ShpCnt
+
+        ppApp.Quit
+        Set ppApp = Nothing
+        Set ppPrs = Nothing
+        Set ppSld = Nothing
+        Set ppShps = Nothing
+        Set ppShp = Nothing
+        
+        Close #1
+        'Application.Wait Now() + TimeValue("00:00:01")
+    
+    Next row
+    
+    MsgBox "書出し完了"
+
+End Sub
+Sub classification_multi_slides()
+
+    Dim myFilePath As String
+    Dim outfilename As String
+    Dim readfilename As String
+    Dim AllCheckOutFile As String
+    Dim FileName As String
+    Dim Tmp As Variant
+    Dim Tmp1, Tmp2 As String
+    Dim nslide As Integer
+    Dim nslideMax As Integer
+    Dim row As Integer
+    Dim rowEnd As Integer
+    Dim clm As Column
+    Dim cl As Cell
+    Dim art As SmartArtNode
+    Dim grp As GroupShapes
+    Dim gsh As Object
+    
+    Const P2CM = 1 / 72 * 2.54  'Points To CentiMeters
+    
+    Dim SheetName As Object
+    Set SheetName = Worksheets("Sheet1")
+
+    rowEnd = SheetName.Cells(1, 1).End(xlDown).row
+    Range(Cells(2, 3), Cells(rowEnd, 8)).Clear
+
+    AllCheckOutFile = ThisWorkbook.Path & "\result_ppt_check.csv"
+    
+    Open AllCheckOutFile For Output As #1
+
+    For row = 2 To rowEnd
+        readfilename = SheetName.Cells(row, 1)
+        If InStr(readfilename, "\") Then
+            Tmp = Split(readfilename, "\")
+            FileName = Tmp(UBound(Tmp))
+            Tmp = Split(FileName, ".")
+            FileName = Tmp(0)
+        Else
+            Tmp = Split(readfilename, ".")
+            FileName = Tmp(0)
+        End If
+        
+        Dim ppApp As New PowerPoint.Application
+        ppApp.Visible = True
+         
+        Dim ppPrs As PowerPoint.Presentation
+        Set ppPrs = ppApp.Presentations.Open(ThisWorkbook.Path & "\" & readfilename)
+             
+        nslideMax = 5
+        If nslideMax > ppPrs.Slides.Count Then nslideMax = ppPrs.Slides.Count
+        
+        'nslide = SheetName.Cells(row, 2)
+        For nslide = 1 To nslideMax
+        
+            outfilename = FileName & "_slide" & nslide & ".txt"
+            myFilePath = ThisWorkbook.Path & "\txt\" & outfilename
+            Open myFilePath For Output As #2
+            
+            Dim ppSld As PowerPoint.Slide
+            Set ppSld = ppPrs.Slides(nslide)
+            
+            Dim ppShps As Object
+            Set ppShps = ppSld.Shapes
+            
+            Dim ShpCnt As Long
+            Dim ppShp As Object
+            For ShpCnt = 1 To ppShps.Count
+                Set ppShp = ppSld.Shapes(ShpCnt)
+                With ppShp
+                    'Debug.Print .Name
+                    Print #1, _
+                      readfilename & "," & nslide & "," & .Name & "," & _
+                      Round(.Top * P2CM, 3) & "," & _
+                      Round(.Left * P2CM, 3) & "," & _
+                      Round(.Height * P2CM, 3) & "," & _
+                      Round(.Width * P2CM, 3) & ","
+    
+                    'テキストボックス、プレースホルダ、オートシェイプの場合
+                    If .HasTextFrame Then
+                        'Debug.Print .TextFrame.TextRange.Text
+                        Print #2, Replace(.TextFrame.TextRange.Text, vbCr, vbCrLf)
+                        SheetName.Cells(row, 3) = "○"
+        
+                    '画像の場合
+                    ElseIf InStr(.Name, "Picture") Or InStr(.Name, "図") Then
+                        SheetName.Cells(row, 4) = "○"
+                    
+                    '表の場合
+                    ElseIf .HasTable Then
+                        For Each clm In .Table.Columns
+                            For Each cl In clm.Cells
+                                'Debug.Print cl.Shape.TextFrame.TextRange.Text
+                                SheetName.Cells(row, 5) = "○"
+                            Next
+                        Next
+        
+                    'グラフの場合
+                    ElseIf .HasChart Then
+                        If .Chart.HasTitle Then
+                            'Debug.Print .Chart.Title
+                            SheetName.Cells(row, 6) = "○"
+                        End If
+        
+                    'スマートアートの場合
+                    ElseIf .HasSmartArt Then
+                        For Each art In .SmartArt.Nodes
+                            'Debug.Print art.TextFrame2.TextRange.Text
+                            SheetName.Cells(row, 7) = "○"
+                        Next
+        
+                    'グループの場合
+                    ElseIf .Type = msoGroup Then
+                        For Each gsh In .GroupItems
+                            With gsh
+                                Print #1, _
+                                  readfilename & "," & nslide & "," & _
+                                  ppShp.Name & "___" & .Name & "," & _
+                                  Round(.Top * P2CM, 3) & "," & _
+                                  Round(.Left * P2CM, 3) & "," & _
+                                  Round(.Height * P2CM, 3) & "," & _
+                                  Round(.Width * P2CM, 3) & ","
+                                If .HasTextFrame Then
+                                    'Debug.Print .TextFrame.TextRange.Text
+                                    Print #2, Replace(.TextFrame.TextRange.Text, vbCr, vbCrLf)
+                                    SheetName.Cells(row, 8) = "○"
+                                End If
+                            End With
+                        Next
+                    
+                    End If
+                    
+                End With
+    
+            Next ShpCnt
+            
+            Set ppSld = Nothing
+            Set ppShps = Nothing
+            Set ppShp = Nothing
+            Close #2
+        Next nslide
+    
+        ppApp.Quit
+        Set ppApp = Nothing
+        Set ppPrs = Nothing
+            
+        'Application.Wait Now() + TimeValue("00:00:01")
+        
+    Next row
+    
+    Close #1
+    
+    MsgBox "書出し完了"
+
+End Sub
+Sub read_all()
+
+    Dim myFilePath As String
+    Dim outfilename As String
+    Dim readfilename As String
+    Dim nslide As Integer, row As Integer
+    Const P2CM = 1 / 72 * 2.54  'Points To CentiMeters
+    
+    Dim SheetName As Object
+    Set SheetName = Worksheets("Sheet1")
+    outfilename = SheetName.Cells(1, 1).Text
+    
+    'テキストの出力先ファイル（デスクトップにテキストファイル）
+    myFilePath = CreateObject("WScript.Shell").SpecialFolders("Desktop") & _
+                 "\" & outfilename
+    
+    Open myFilePath For Output As #1
+
+    For row = 1 To SheetName.Cells(1, 2).End(xlDown).row
+        readfilename = SheetName.Cells(row, 2)
+        nslide = SheetName.Cells(row, 3)
+        
+        Dim ppApp As New PowerPoint.Application
+        ppApp.Visible = True
+         
+        Dim ppPrs As PowerPoint.Presentation
+        Set ppPrs = ppApp.Presentations.Open(ThisWorkbook.Path & "\" & readfilename)
+         
+        Dim ppSld As PowerPoint.Slide
+        Set ppSld = ppPrs.Slides(nslide)
+        
+        Dim ppShps As Object
+        Set ppShps = ppSld.Shapes
+        
+        Dim ShpCnt As Long
+        Dim ppShp As Object
+        For ShpCnt = 1 To ppShps.Count
+            Set ppShp = ppSld.Shapes(ShpCnt)
+            With ppShp
+                If .HasTextFrame Then
+                    Print #1, _
+                      readfilename & "," & nslide & "," & .Name & "," & _
+                      Round(.Top * P2CM, 3) & "," & _
+                      Round(.Left * P2CM, 3) & "," & _
+                      Round(.Height * P2CM, 3) & "," & _
+                      Round(.Width * P2CM, 3) & "," & .TextFrame.TextRange.Text
+                Else
+                    Print #1, _
+                      readfilename & "," & nslide & "," & .Name & "," & _
+                      Round(.Top * P2CM, 3) & "," & _
+                      Round(.Left * P2CM, 3) & "," & _
+                      Round(.Height * P2CM, 3) & "," & _
+                      Round(.Width * P2CM, 3) & ","
+                End If
+            End With
+
+        Next ShpCnt
+    
+        ppApp.Quit
+        Set ppApp = Nothing
+        Set ppPrs = Nothing
+        Set ppSld = Nothing
+        Set ppShps = Nothing
+        Set ppShp = Nothing
+        
+    Next row
+    
+    Close #1
+    MsgBox "書出し完了"
+
+End Sub
+Sub classification()
+
+    Dim myFilePath As String
+    Dim outfilename As String
+    Dim readfilename As String
+    Dim AllCheckOutFile As String
+    Dim FileName As String
+    Dim Tmp As Variant
+    Dim Tmp1, Tmp2 As String
+    Dim nslide As Integer
+    Dim nslideMax As Integer
+    Dim row As Integer
+    Dim rowEnd As Integer
+    Dim clm As Column
+    Dim cl As Cell
+    Dim art As SmartArtNode
+    Dim grp As GroupShapes
+    Dim gsh As Object
+    
+    Const P2CM = 1 / 72 * 2.54  'Points To CentiMeters
+    
+    Dim SheetName As Object
+    Set SheetName = Worksheets("Sheet1")
+
+    rowEnd = SheetName.Cells(1, 1).End(xlDown).row
+    Range(Cells(2, 3), Cells(rowEnd, 8)).Clear
+
+    AllCheckOutFile = ThisWorkbook.Path & "\result_ppt_check.csv"
+    
+    Open AllCheckOutFile For Output As #1
+
+    For row = 2 To rowEnd
+        readfilename = SheetName.Cells(row, 1)
+        If InStr(readfilename, "\") Then
+            Tmp = Split(readfilename, "\")
+            FileName = Tmp(UBound(Tmp))
+            Tmp = Split(FileName, ".")
+            FileName = Tmp(0)
+        Else
+            Tmp = Split(readfilename, ".")
+            FileName = Tmp(0)
+        End If
+        
+        nslide = SheetName.Cells(row, 2)
+        
+        outfilename = FileName & "_slide" & nslide & ".txt"
+        myFilePath = ThisWorkbook.Path & "\txt\" & outfilename
+        Open myFilePath For Output As #2
+        
+        Dim ppApp As New PowerPoint.Application
+        ppApp.Visible = True
+         
+        Dim ppPrs As PowerPoint.Presentation
+        Set ppPrs = ppApp.Presentations.Open(ThisWorkbook.Path & "\" & readfilename)
+             
+        Dim ppSld As PowerPoint.Slide
+        Set ppSld = ppPrs.Slides(nslide)
+        
+        Dim ppShps As Object
+        Set ppShps = ppSld.Shapes
+        
+        Dim ShpCnt As Long
+        Dim ppShp As Object
+        For ShpCnt = 1 To ppShps.Count
+            Set ppShp = ppSld.Shapes(ShpCnt)
+            With ppShp
+                'Debug.Print .Name
+                Print #1, _
+                  readfilename & "," & nslide & "," & .Name & "," & _
+                  Round(.Top * P2CM, 3) & "," & _
+                  Round(.Left * P2CM, 3) & "," & _
+                  Round(.Height * P2CM, 3) & "," & _
+                  Round(.Width * P2CM, 3) & ","
+
+                'テキストボックス、プレースホルダ、オートシェイプの場合
+                If .HasTextFrame Then
+                    'Debug.Print .TextFrame.TextRange.Text
+                    Print #2, Replace(.TextFrame.TextRange.Text, vbCr, vbCrLf)
+                    SheetName.Cells(row, 3) = "○"
+    
+                '画像の場合
+                ElseIf InStr(.Name, "Picture") Or InStr(.Name, "図") Then
+                    SheetName.Cells(row, 4) = "○"
+                
+                '表の場合
+                ElseIf .HasTable Then
+                    For Each clm In .Table.Columns
+                        For Each cl In clm.Cells
+                            'Debug.Print cl.Shape.TextFrame.TextRange.Text
+                            SheetName.Cells(row, 5) = "○"
+                        Next
+                    Next
+    
+                'グラフの場合
+                ElseIf .HasChart Then
+                    If .Chart.HasTitle Then
+                        'Debug.Print .Chart.Title
+                        SheetName.Cells(row, 6) = "○"
+                    End If
+    
+                'スマートアートの場合
+                ElseIf .HasSmartArt Then
+                    For Each art In .SmartArt.Nodes
+                        'Debug.Print art.TextFrame2.TextRange.Text
+                        SheetName.Cells(row, 7) = "○"
+                    Next
+    
+                'グループの場合
+                ElseIf .Type = msoGroup Then
+                    For Each gsh In .GroupItems
+                        With gsh
+                            Print #1, _
+                              readfilename & "," & nslide & "," & _
+                              ppShp.Name & "___" & .Name & "," & _
+                              Round(.Top * P2CM, 3) & "," & _
+                              Round(.Left * P2CM, 3) & "," & _
+                              Round(.Height * P2CM, 3) & "," & _
+                              Round(.Width * P2CM, 3) & ","
+                            If .HasTextFrame Then
+                                'Debug.Print .TextFrame.TextRange.Text
+                                Print #2, Replace(.TextFrame.TextRange.Text, vbCr, vbCrLf)
+                                SheetName.Cells(row, 8) = "○"
+                            End If
+                        End With
+                    Next
+                
+                End If
+                
+            End With
+
+        Next ShpCnt
+    
+        ppApp.Quit
+        Set ppSld = Nothing
+        Set ppShps = Nothing
+        Set ppShp = Nothing
+        Set ppApp = Nothing
+        Set ppPrs = Nothing
+            
+        Close #2
+        'Application.Wait Now() + TimeValue("00:00:01")
+        
+    Next row
+    
+    Close #1
+    
+    MsgBox "書出し完了"
+
+End Sub
+
+Sub ひらがなカタカナ判定1()
+    Dim msg As String
+    If Left(Range("A1"), 1) Like "[あ-ん]" Then
+        msg = Left(Range("A1"), 1) & " は、ひらがなです" & vbCrLf
+    Else
+        msg = Left(Range("A1"), 1) & " は、ひらがなではありません" & vbCrLf
+    End If
+    If Left(Range("A1"), 1) Like "[ア-ン]" Then
+        msg = msg & Left(Range("A1"), 1) & " は、カタカナです" & vbCrLf
+    Else
+        msg = msg & Left(Range("A1"), 1) & " は、カタカナではありません" & vbCrLf
+    End If
+    MsgBox msg
+End Sub
+
+Sub ひらがなカタカナ判定2()
+    Dim msg As String
+    If Range("A1") = StrConv(Range("A1"), vbHiragana) Then
+        msg = Range("A1") & " は、ひらがなです" & vbCrLf
+    Else
+        msg = Range("A1") & " は、ひらがなではありません" & vbCrLf
+    End If
+    If Range("A1") = StrConv(Range("A1"), vbKatakana) Then
+        msg = msg & Range("A1") & " は、カタカナです" & vbCrLf
+    Else
+        msg = msg & Range("A1") & " は、カタカナではありません" & vbCrLf
+    End If
+    MsgBox msg
+End Sub
+
+Sub カタカナ判定()
+    If Range("A1") = StrConv(Range("A1"), vbKatakana) Then
+        MsgBox "すべてカタカナです"
+    Else
+        MsgBox "ひらがな が含まれています"
+    End If
+End Sub
+
+
+Sub 全角半角判定()
+    If Range("A1") = StrConv(Range("A1"), vbNarrow) Then
+        MsgBox "半角です"
+    Else
+        MsgBox "全角です"
+    End If
+    If Range("A1") = StrConv(Range("A1"), vbWide) Then
+    End If
+End Sub
+
+Sub 大文字小文字判定()
+    If Range("A1") = LCase(Range("A1")) Then
+    End If
+    If Range("A1") = UCase(Range("A1")) Then
+        MsgBox "すべて大文字です"
+    Else
+        MsgBox "小文字が含まれています"
+    End If
+End Sub
+
+Function IncludeTwoByteChar(ByVal strInput As String) As Boolean
+    ' strInputの文字数とJISコードに変換したstrInputのバイト数が違うと全角文字が入っている
+    If Len(strInput) <> LenB(StrConv(strInput, vbFromUnicode)) Then
+        IncludeTwoByteChar = True
+    Else
+        IncludeTwoByteChar = False
+    End If
+End Function
+
+Sub FindJapaneseRegExpCallTest()
+    Dim s
+    
+    s = IncludeTwoByteChar(Range("A1"))
+    'Call FindJapaneseRegExp("あいう123４５６78９０abc1＠大中小ａｂｃ月火ｱｲｳﾊﾟパ祈祷師佐々木", s)
+    Debug.Print s
+End Sub
+
+'// 引数1：対象文字列
+'// 引数2：検索結果
+Sub FindJapaneseRegExp(s, result)
+    Dim reg As New RegExp       '// 正規表現クラスオブジェクト
+    
+    '// 検索条件＝日本語以外を抽出
+    reg.Pattern = "[^ぁ-んァ-ヶ一-龠〃々〆〇｡-ﾟ]"
+    '// 文字列の最後まで検索する
+    reg.Global = True
+    '// 指定セルの日本語以外を空文字に置き換える
+    result = reg.Replace(s, "")
+End Sub
+
+
